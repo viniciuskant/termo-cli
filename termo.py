@@ -1,33 +1,81 @@
 import os
 import random
 import argparse
+from itertools import product
 
 def simplifica(palavra):
     dicionario = {
-        'a':'a', 'á':'a', 'ã':'a', 'â':'a', 'b':'b', 'c':'c', 'ç':'c', 'd':'d', 'e':'e', 'é':'e', 'ê':'e', 'f':'f', 'g':'g', 'h':'h', 'i':'i', 'í':'i', 'j':'j', 'k':'k', 'l':'l', 'm':'m', 'n':'n', 'o':'o', 'ó':'o', 'ô':'o', 'p':'p', 'q':'q', 'r':'r', 's':'s', 't':'t', 'u':'u', 'v':'v', 'w':'w', 'x':'x', 'y':'y', 'z':'z'
+        'a':'a', 'á':'a', 'ã':'a', 'â':'a', 'b':'b', 'c':'c', 'ç':'c', 'd':'d', 'e':'e', 'é':'e', 'ê':'e', 'f':'f', 'g':'g', 'h':'h', 'i':'i', 'í':'i', 'j':'j', 'k':'k', 'l':'l', 'm':'m', 'n':'n', 'o':'o', 'ó':'o', 'ô':'o', 'p':'p', 'q':'q', 'r':'r', 's':'s', 't':'t', 'u':'u', 'ú':'u', 'ü':'u', 'v':'v', 'w':'w', 'x':'x', 'y':'y', 'z':'z'
     }
     palavra = [dicionario[i] for i in palavra]
-    palavra = "".join(palavra)
+    return "".join(palavra)
+
+
+def possibilidades(palavra, palavras):
+    dicionario = {
+        'a': ['a', 'á', 'ã', 'â'],
+        'c': ['c', 'ç'],
+        'e': ['e', 'é', 'ê'],
+        'i': ['i', 'í'],
+        'o': ['o', 'ó', 'ô'],
+        'u': ['u', 'ú', 'ü']
+    }
+    
+    inversoes = {
+        'á': 'a', 'ã': 'a', 'â': 'a', 'é': 'e', 'ê': 'e', 'í': 'i', 'ó': 'o', 'ô': 'o', 'ú': 'u', 'ü': 'u', 'ç': 'c'
+    }
+    
+    variacoes = []
+    for letra in palavra:
+        if letra in dicionario:
+            variacoes.append(dicionario[letra])
+        else:
+            if letra in inversoes:
+                letra_base = inversoes[letra]
+                if letra_base in dicionario:
+                    variacoes.append(dicionario[letra_base])
+                else:
+                    variacoes.append([letra])
+            else:
+                variacoes.append([letra])
+
+    possibilidades_palavras = [''.join(comb) for comb in product(*variacoes)]
+    
+    retorno = [p for p in possibilidades_palavras if p in palavras]
+    
+    return retorno
+
+
 
 def ler_palavras(diretorio, tamanho):
     palavras = []
-    path = 'pt-br/lexico'
-    path = 'pt-br/icf'
-    with open(os.path.join(path), 'r', encoding='utf-8') as f:
+    conjugacoes = []
+    path_conj = 'pt-br/conjugações'
+    path_icf = 'pt-br/icf'
+
+    with open(os.path.join(path_conj), 'r', encoding='utf-8') as f:
+        for linha in f.readlines():
+            palavra = linha.strip().lower()
+            if len(palavra) == tamanho:
+                conjugacoes.append(palavra)
+
+    with open(os.path.join(path_icf), 'r', encoding='utf-8') as f:
         for linha in f.readlines():
             linha = linha.split(",")[0]
             palavra = linha.strip().lower()
-            if len(palavra) == tamanho:
+            if len(palavra) == tamanho and palavra not in conjugacoes:
                 palavras.append(palavra)
+
+
     return palavras
-    
+
 
 def dar_feedback(palavra, tentativa):
     palavra = simplifica(palavra)
-    tentativa = simplifica(palavra)
+    tentativa = simplifica(tentativa)
 
     VERDE = '\033[92m'  
-    AMARELO = '\033[93m'  
+    AMARELO = '\033[95m'  
     BRANCO = '\033[97m'   
     RESET = '\033[0m'    
     
@@ -47,7 +95,6 @@ def dar_feedback(palavra, tentativa):
     for i in range(len(palavra)):
         if feedback[i] == 'verde':
             continue 
-        
         
         if tentativa[i] in palavra:
             total_na_palavra = palavra.count(tentativa[i])
@@ -75,13 +122,17 @@ def jogar(palavras, tentativas_max):
     print("\n" + "="*50)
     print("LEGENDA DE CORES:")
     print("\033[92mVERDE\033[0m: Letra na posição CORRETA")
-    print("\033[93mAMARELO\033[0m: Letra existe na palavra mas em OUTRA posição")
+    print("\033[95mROSA\033[0m: Letra existe na palavra mas em OUTRA posição")
     print("\033[97mBRANCO\033[0m: Letra NÃO existe na palavra")
     print("="*50)
     print()
 
+    print()
+
     while tentativas < tentativas_max:
         tentativa = input(f"Tentativa {tentativas + 1}/{tentativas_max}: ").strip().lower()
+        possibilidades(tentativa, palavras)
+
 
         if len(tentativa) != len(palavra_correta):
             print(f"A palavra deve ter {len(palavra_correta)} letras!")
