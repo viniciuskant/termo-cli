@@ -41,6 +41,7 @@ def possibilidades(palavra, palavras):
 
     possibilidades_palavras = [''.join(comb) for comb in product(*variacoes)]
     
+
     retorno = [p for p in possibilidades_palavras if p in palavras]
     
     return retorno
@@ -63,15 +64,16 @@ def ler_palavras(diretorio, tamanho):
         for linha in f.readlines():
             linha = linha.split(",")[0]
             palavra = linha.strip().lower()
+
             if len(palavra) == tamanho and palavra not in conjugacoes:
                 palavras.append(palavra)
-
 
     return palavras
 
 
 def dar_feedback(palavra, tentativa):
     palavra = simplifica(palavra)
+    tentativa_original =  tentativa
     tentativa = simplifica(tentativa)
 
     VERDE = '\033[92m'  
@@ -87,7 +89,7 @@ def dar_feedback(palavra, tentativa):
         if tentativa[i] == palavra[i]:
             feedback.append('verde')
             letras_verificadas.append(tentativa[i])
-            resultado.append(f"{VERDE}{tentativa[i].upper()}{RESET}")
+            resultado.append(f"{VERDE}{tentativa_original[i].upper()}{RESET}")
         else:
             feedback.append(None)
             resultado.append(None)
@@ -102,15 +104,16 @@ def dar_feedback(palavra, tentativa):
             
             if ja_marcadas < total_na_palavra:
                 feedback[i] = 'amarelo'
-                resultado[i] = f"{AMARELO}{tentativa[i].upper()}{RESET}"
+                resultado[i] = f"{AMARELO}{tentativa_original[i].upper()}{RESET}"
                 letras_verificadas.append(tentativa[i])
             else:
                 feedback[i] = 'branco'
-                resultado[i] = f"{BRANCO}{tentativa[i].upper()}{RESET}"
+                resultado[i] = f"{BRANCO}{tentativa_original[i].upper()}{RESET}"
         else:
             feedback[i] = 'branco'
-            resultado[i] = f"{BRANCO}{tentativa[i].upper()}{RESET}"
+            resultado[i] = f"{BRANCO}{tentativa_original[i].upper()}{RESET}"
     
+
     return ' '.join(resultado)
 
 
@@ -131,16 +134,22 @@ def jogar(palavras, tentativas_max):
 
     while tentativas < tentativas_max:
         tentativa = input(f"Tentativa {tentativas + 1}/{tentativas_max}: ").strip().lower()
-        possibilidades(tentativa, palavras)
 
 
         if len(tentativa) != len(palavra_correta):
             print(f"A palavra deve ter {len(palavra_correta)} letras!")
             continue
 
-        if tentativa not in palavras:
+        possiveis_tentativas = possibilidades(tentativa, palavras)
+
+        if len(possiveis_tentativas) == 0:
             print("Essa palavra não é aceita!")
             continue
+
+        if tentativa not in possiveis_tentativas[0]:
+            #pode dar ruim, exemplo maca
+            tentativa = possiveis_tentativas[0]
+        
 
         if tentativa == palavra_correta:
             feedback = dar_feedback(palavra_correta, tentativa)
