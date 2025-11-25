@@ -10,7 +10,6 @@ def simplifica(palavra):
     palavra = [dicionario[i] for i in palavra]
     return "".join(palavra)
 
-
 def possibilidades(palavra, palavras):
     dicionario = {
         'a': ['a', 'á', 'ã', 'â'],
@@ -41,12 +40,9 @@ def possibilidades(palavra, palavras):
 
     possibilidades_palavras = [''.join(comb) for comb in product(*variacoes)]
     
-
     retorno = [p for p in possibilidades_palavras if p in palavras]
     
     return retorno
-
-
 
 def ler_palavras(diretorio, tamanho):
     palavras = []
@@ -70,10 +66,9 @@ def ler_palavras(diretorio, tamanho):
 
     return palavras
 
-
 def dar_feedback(palavra, tentativa):
     palavra = simplifica(palavra)
-    tentativa_original =  tentativa
+    tentativa_original = tentativa
     tentativa = simplifica(tentativa)
 
     VERDE = '\033[92m'  
@@ -113,14 +108,83 @@ def dar_feedback(palavra, tentativa):
             feedback[i] = 'branco'
             resultado[i] = f"{BRANCO}{tentativa_original[i].upper()}{RESET}"
     
+    return ' '.join(resultado), feedback, tentativa_original
 
-    return ' '.join(resultado)
+def atualizar_estado_letras(estado, feedback, tentativa):
+    """
+    Atualiza o estado das letras baseado no feedback da tentativa atual
+    """
+    tentativa_simplificada = simplifica(tentativa)
+    
+    for i, letra in enumerate(tentativa_simplificada):
+        letra_original = tentativa[i].upper()
+        
+        if feedback[i] == 'verde':
+            # Letra na posição correta
+            if letra not in estado['corretas']:
+                estado['corretas'][letra] = set()
+            estado['corretas'][letra].add(i)
+            # Remove de posição errada se estava lá
+            if letra in estado['posicao_errada']:
+                estado['posicao_errada'][letra].discard(i)
+            
+        elif feedback[i] == 'amarelo':
+            # Letra existe mas em posição errada
+            if letra not in estado['posicao_errada']:
+                estado['posicao_errada'][letra] = set()
+            estado['posicao_errada'][letra].add(i)
+            
+        elif feedback[i] == 'branco':
+            # Letra não existe na palavra
+            estado['faltantes'].add(letra)
+    
+    # Atualizar letras usadas
+    for letra in tentativa_simplificada:
+        estado['letras_usadas'].add(letra)
 
+def formatar_estado_letras(estado, tamanho_palavra):
+    """
+    Formata o estado das letras para exibição
+    """
+    VERDE = '\033[92m'
+    AMARELO = '\033[95m'
+    BRANCO = '\033[97m'
+    RESET = '\033[0m'
+    
+    # Faltantes (não usadas)
+    todas_letras = set('abcdefghijklmnopqrstuvwxyz')
+    letras_faltantes = todas_letras - estado['letras_usadas']
+    faltantes_formatado = ' '.join(sorted(letras_faltantes)).upper()
+    
+    # Corretas (verde)
+    corretas_lista = []
+    for letra, posicoes in estado['corretas'].items():
+        for pos in sorted(posicoes):
+            corretas_lista.append(f"{VERDE}{letra.upper()}{RESET}")
+            # corretas_lista.append(f"{VERDE}{letra.upper()}{RESET}({pos+1})")
+    corretas_formatado = ' '.join(corretas_lista) if corretas_lista else "Nenhuma"
+    
+    # Posição errada (amarelo)
+    pos_errada_lista = []
+    for letra, posicoes in estado['posicao_errada'].items():
+        for pos in sorted(posicoes):
+            pos_errada_lista.append(f"{AMARELO}{letra.upper()}{RESET}")
+            # pos_errada_lista.append(f"{AMARELO}{letra.upper()}{RESET}({pos+1})")
+    pos_errada_formatado = ' '.join(pos_errada_lista) if pos_errada_lista else "Nenhuma"
+    
+    return faltantes_formatado, corretas_formatado, pos_errada_formatado
 
 def jogar(palavras, tentativas_max):
     palavra_correta = random.choice(palavras)
     tentativas = 0
     
+    # Estado inicial das letras
+    estado_letras = {
+        'faltantes': set(),           # Letras que não existem na palavra
+        'corretas': {},               # {letra: {posições corretas}}
+        'posicao_errada': {},         # {letra: {posições erradas}}
+        'letras_usadas': set()        # Todas as letras já tentadas
+    }
     
     print("\n" + "="*50)
     print("LEGENDA DE CORES:")
@@ -130,11 +194,8 @@ def jogar(palavras, tentativas_max):
     print("="*50)
     print()
 
-    print()
-
     while tentativas < tentativas_max:
         tentativa = input(f"Tentativa {tentativas + 1}/{tentativas_max}: ").strip().lower()
-
 
         if len(tentativa) != len(palavra_correta):
             print(f"A palavra deve ter {len(palavra_correta)} letras!")
@@ -147,19 +208,31 @@ def jogar(palavras, tentativas_max):
             continue
 
         if tentativa not in possiveis_tentativas[0]:
-            #pode dar ruim, exemplo maca
             tentativa = possiveis_tentativas[0]
-        
 
         if tentativa == palavra_correta:
-            feedback = dar_feedback(palavra_correta, tentativa)
+            feedback, feedback_detalhado, _ = dar_feedback(palavra_correta, tentativa)
             print("Palavra:", feedback)
+            atualizar_estado_letras(estado_letras, feedback_detalhado, tentativa)
             print("\nParabéns, você acertou a palavra!")
             break
 
-        feedback = dar_feedback(palavra_correta, tentativa)
+        feedback, feedback_detalhado, tentativa_original = dar_feedback(palavra_correta, tentativa)
         print("Palavra:", feedback)
-        print()  
+        
+        # Atualizar estado das letras
+        atualizar_estado_letras(estado_letras, feedback_detalhado, tentativa_original)
+        
+        # Exibir estado atual das letras
+        print("\n" + "-"*50)
+        print("ESTADO DAS LETRAS:")
+        faltantes, corretas, pos_errada = formatar_estado_letras(estado_letras, len(palavra_correta))
+        print(f"Faltantes: {faltantes}")
+        print(f"Corretas: {corretas}")
+        print(f"Posição errada: {pos_errada}")
+        print("-"*50)
+        print()
+        
         tentativas += 1
 
     if tentativas >= tentativas_max and tentativa != palavra_correta:
@@ -170,7 +243,6 @@ def main():
     parser.add_argument('tamanho', type=int, help="Número de letras da palavra")
     parser.add_argument('tentativas', type=int, help="Número de tentativas possíveis")
     args = parser.parse_args()
-
     
     diretorio = 'termo/pt-br'
 
