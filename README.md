@@ -6,6 +6,8 @@ Um jogo de adivinhação de palavras baseado em linha de comando (CLI) em portug
 
 Termonal é um jogo baseado em terminal inspirado em jogos populares de palavras, adaptado para a língua portuguesa. Ele é executado completamente na sua interface de linha de comando.
 
+O lexer utilizado neste repositório é baseado fortemente no [pt-br](https://github.com/fserb/pt-br), um projeto dedicado ao processamento de textos em português.
+
 ## Instalação
 
 ### Pelo AUR
