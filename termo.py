@@ -1,7 +1,6 @@
 import os
 import random
 import argparse
-from itertools import product
 import math
 
 VERDE = '\033[92m'
@@ -10,14 +9,14 @@ BRANCO = '\033[97m'
 CINZA = '\033[30m'
 RESET = '\033[0m'
 
+def inicializar_estado_letras(estado_letras):
+    for codigo in range(ord('a'), ord('z') + 1):
+        letra = chr(codigo)
+        estado_letras[letra] = "branco"
 
-def init_estado_letras(dicionario):
-    for i in range(ord('a'), ord('z') + 1):
-        letra = chr(i)
-        dicionario[letra] = "branco"
 
-def simplifica(palavra):
-    inversoes = {
+def normalizar_palavra(palavra):
+    mapa_normalizacao = {
         'à': 'a', 'á': 'a', 'ã': 'a', 'â': 'a', 'ä': 'a',
         'è': 'e', 'é': 'e', 'ẽ': 'e', 'ê': 'e', 'ë': 'e',
         'ì': 'i', 'í': 'i', 'ĩ': 'i', 'î': 'i', 'ï': 'i',
@@ -25,134 +24,136 @@ def simplifica(palavra):
         'ù': 'u', 'ú': 'u', 'ũ': 'u', 'û': 'u', 'ü': 'u',
         'ç': 'c'
     }
-    palavra = [inversoes.get(i, i) for i in palavra]
-    return "".join(palavra)
+    caracteres_normalizados = [mapa_normalizacao.get(caractere, caractere) for caractere in palavra]
+    return "".join(caracteres_normalizados)
 
-def ler_palavras(tamanho):
-    palavras = {}
-    dict_equivalente = {}
-    peso = []
-    path_icf = 'pt-br/icf.sort'
-    with open(os.path.join(path_icf), 'r', encoding='utf-8') as f:
-        linhas = f.readlines()
 
-    i = 0
-    while i < len(linhas):
-        linha = linhas[i].strip().split(",")
-        tupla = (linha[0], float(linha[1]))
+def carregar_palavras(tamanho_palavra):
+    dicionario_normalizado = {}
+    dicionario_equivalentes = {}
+    lista_pesos = []
+    caminho_arquivo = 'pt-br/icf'
+    
+    with open(os.path.join(caminho_arquivo), 'r', encoding='utf-8') as arquivo:
+        linhas = arquivo.readlines()
 
-        if len(tupla[0]) != tamanho:
-            i += 1
+    linha_atual = 0
+    while linha_atual < len(linhas):
+        partes_linha = linhas[linha_atual].strip().split(",")
+        entrada = (partes_linha[0], float(partes_linha[1]))
+
+        if len(entrada[0]) != tamanho_palavra:
+            linha_atual += 1
             continue
 
-        simplificada = simplifica(tupla[0])
+        palavra_sem_acentos = normalizar_palavra(entrada[0])
 
-        equivalente = [tupla[0]]
-        k = 1
+        variantes = [entrada[0]]
+        deslocamento = 1
 
-        while i + k < len(linhas):
-            linha_eq = linhas[i + k].strip().split(",")
-            tupla_eq = (linha_eq[0], float(linha_eq[1]))
+        while linha_atual + deslocamento < len(linhas):
+            linha_variante = linhas[linha_atual + deslocamento].strip().split(",")
+            entrada_variante = (linha_variante[0], float(linha_variante[1]))
+            palavra_variante_sem_acentos = normalizar_palavra(entrada_variante[0])
 
-            simplificada_eq = simplifica(tupla_eq[0])
-
-            if simplificada != simplificada_eq:
+            if palavra_sem_acentos != palavra_variante_sem_acentos:
                 break
 
-            equivalente.append(tupla_eq[0])
-            k += 1
+            variantes.append(entrada_variante[0])
+            deslocamento += 1
 
-        dict_equivalente[simplificada] = equivalente
+        dicionario_equivalentes[palavra_sem_acentos] = variantes
 
-        if simplificada not in palavras:
-            palavras[simplificada] = tupla[0]
-            peso.append(tupla)
+        if palavra_sem_acentos not in dicionario_normalizado:
+            dicionario_normalizado[palavra_sem_acentos] = entrada[0]
+            lista_pesos.append(entrada)
 
-        i += k 
+        linha_atual += deslocamento
 
-    return palavras, peso, dict_equivalente
+    return dicionario_normalizado, lista_pesos, dicionario_equivalentes
 
 
-def dar_feedback(palavra, tentativa):
-    palavra = simplifica(palavra)
-    tentativa_original = tentativa
-    tentativa = simplifica(tentativa)
+def calcular_feedback(palavra_secreta, tentativa_usuario):
+    palavra_secreta_normalizada = normalizar_palavra(palavra_secreta)
+    tentativa_original = tentativa_usuario
+    tentativa_normalizada = normalizar_palavra(tentativa_usuario)
     
     feedback = []
-    letras_verificadas = []
-    resultado = []
+    letras_processadas = []
+    resultado_formatado = []
     
-    for i in range(len(palavra)):
-        if tentativa[i] == palavra[i]:
+    for posicao in range(len(palavra_secreta)):
+        if tentativa_normalizada[posicao] == palavra_secreta_normalizada[posicao]:
             feedback.append('verde')
-            letras_verificadas.append(tentativa[i])
-            resultado.append(f"{VERDE}{tentativa_original[i].upper()}{RESET}")
+            letras_processadas.append(tentativa_normalizada[posicao])
+            resultado_formatado.append(f"{VERDE}{tentativa_original[posicao].upper()}{RESET}")
         else:
             feedback.append(None)
-            resultado.append(None)
+            resultado_formatado.append(None)
     
-    for i in range(len(palavra)):
-        if feedback[i] == 'verde':
+    for posicao in range(len(palavra_secreta)):
+        if feedback[posicao] == 'verde':
             continue 
         
-        if tentativa[i] in palavra:
-            total_na_palavra = palavra.count(tentativa[i])
-            ja_marcadas = letras_verificadas.count(tentativa[i])
-            
-            if ja_marcadas < total_na_palavra:
-                feedback[i] = 'amarelo'
-                resultado[i] = f"{AMARELO}{tentativa_original[i].upper()}{RESET}"
-                letras_verificadas.append(tentativa[i])
-            else:
-                feedback[i] = 'cinza'
-                resultado[i] = f"{BRANCO}{tentativa_original[i].upper()}{RESET}"
-        else:
-            feedback[i] = 'cinza'
-            resultado[i] = f"{BRANCO}{tentativa_original[i].upper()}{RESET}"
-    
-    return ' '.join(resultado), feedback, tentativa_original
-
-def atualizar_estado_letras(estado, feedback, tentativa):
-    """
-    Atualiza o estado das letras baseado no feedback da tentativa atual
-    """
-    tentativa_simplificada = simplifica(tentativa)
-    
-    for i, letra in enumerate(tentativa_simplificada):
-        if estado[letra] == "verde":
-            continue
-        if estado[letra] == "amarelo" and feedback[i] != "verde":
-            continue
-        estado[letra] = feedback[i]
+        letra_tentativa = tentativa_normalizada[posicao]
         
-def print_estado_letras(estado):
-    string_formatada = []
-    cores = {"verde": VERDE, "amarelo": AMARELO, "cinza": CINZA, "branco": BRANCO}
+        if letra_tentativa in palavra_secreta_normalizada:
+            quantidade_na_palavra = palavra_secreta_normalizada.count(letra_tentativa)
+            quantidade_marcada = letras_processadas.count(letra_tentativa)
+            
+            if quantidade_marcada < quantidade_na_palavra:
+                feedback[posicao] = 'amarelo'
+                resultado_formatado[posicao] = f"{AMARELO}{tentativa_original[posicao].upper()}{RESET}"
+                letras_processadas.append(letra_tentativa)
+            else:
+                feedback[posicao] = 'cinza'
+                resultado_formatado[posicao] = f"{BRANCO}{tentativa_original[posicao].upper()}{RESET}"
+        else:
+            feedback[posicao] = 'cinza'
+            resultado_formatado[posicao] = f"{BRANCO}{tentativa_original[posicao].upper()}{RESET}"
+    
+    return ' '.join(resultado_formatado), feedback, tentativa_original
 
-    for letra, cor in estado.items():
-        string_formatada.append(f"{cores[cor]}{letra.upper()}{RESET}")
 
-    return ' '.join(string_formatada)
+def atualizar_estado_letras(estado_letras, feedback, tentativa):
+    tentativa_normalizada = normalizar_palavra(tentativa)
+    for posicao, letra in enumerate(tentativa_normalizada):
+        estado_atual = estado_letras[letra]
+        if estado_atual == "verde":
+            continue
+        if estado_atual == "amarelo" and feedback[posicao] != "verde":
+            continue
+        estado_letras[letra] = feedback[posicao]
 
-def clear_line():
-    """Apaga a linha atual no terminal"""
+
+def formatar_estado_letras(estado_letras):
+    letras_formatadas = []
+    codigos_cores = {"verde": VERDE, "amarelo": AMARELO, "cinza": CINZA, "branco": BRANCO}
+
+    for letra, estado in estado_letras.items():
+        letras_formatadas.append(f"{codigos_cores[estado]}{letra.upper()}{RESET}")
+
+    return ' '.join(letras_formatadas)
+
+def limpar_linha():
     print('\033[2K', end='\r')
 
-def probs_exponencial(pesos, alpha=1.0):
-    palavras, w = zip(*pesos)
-    scores = [math.exp(-alpha * x) for x in w] 
-    soma = sum(scores)
-    probs = [s / soma for s in scores]
-    return list(palavras), probs
+def calcular_probabilidades_exponenciais(lista_pesos, fator_alpha=1.0):
+    palavras_originais, pesos = zip(*lista_pesos)
+    scores = [math.exp(-fator_alpha * peso) for peso in pesos]
+    soma_scores = sum(scores)
+    probabilidades = [score / soma_scores for score in scores]
+    return list(palavras_originais), probabilidades
 
 
-def jogar(palavras, pesos, tentativas_max, equivalentes):
-    escolha, probs = probs_exponencial(pesos)
-    palavra_correta = random.choices(escolha, weights=probs, k=1)[0]
-    correta_simplificada = simplifica(palavra_correta)
-    tentativas = 0
+def executar_jogo(dicionario_palavras, lista_pesos, max_tentativas, dicionario_equivalentes):
+    palavras_validas, probabilidades = calcular_probabilidades_exponenciais(lista_pesos)
+    palavra_secreta = random.choices(palavras_validas, weights=probabilidades, k=1)[0]
+    palavra_secreta_normalizada = normalizar_palavra(palavra_secreta)
+    
+    tentativas_realizadas = 0
     estado_letras = {}
-    init_estado_letras(estado_letras)
+    inicializar_estado_letras(estado_letras)
     historico_tentativas = []
 
     print("\n" + "="*50)
@@ -163,79 +164,82 @@ def jogar(palavras, pesos, tentativas_max, equivalentes):
     print("="*50)
     print()
 
-    while tentativas < tentativas_max:
-        print_estado = print_estado_letras(estado_letras)
-        print(f"Letras: {print_estado}")
+    while tentativas_realizadas < max_tentativas:
+        estado_formatado = formatar_estado_letras(estado_letras)
+        print(f"Letras: {estado_formatado}")
         print()
 
-        for i, (tentativa_str, feedback_str) in enumerate(historico_tentativas):
-            print(f"Tentativa   {i+1}: {feedback_str}")
-        
+        for indice, (palavra_tentada, feedback_formatado) in enumerate(historico_tentativas):
+            print(f"Tentativa   {indice+1}: {feedback_formatado}")
         
         try:
-            tentativa = input(f"Tentativa {tentativas + 1}/{tentativas_max}: ").strip().lower()
-            clear_line()
+            tentativa_usuario = input(f"Tentativa {tentativas_realizadas + 1}/{max_tentativas}: ").strip().lower()
+            limpar_linha()
             
             for _ in range(3 + len(historico_tentativas)):
                 print('\033[1A', end='') 
                 print('\033[2K', end='') 
         except (EOFError, KeyboardInterrupt):
-            print(f"\n\nSaindo... A palavra correta era: {VERDE}{palavra_correta.upper()}{RESET}")
+            print(f"\n\nSaindo... A palavra correta era: {VERDE}{palavra_secreta.upper()}{RESET}")
             return
 
-
-        if len(tentativa) != len(palavra_correta):
-            print(f"A palavra deve ter {len(palavra_correta)} letras!")
+        if len(tentativa_usuario) != len(palavra_secreta):
+            print(f"A palavra deve ter {len(palavra_secreta)} letras!")
             input("Pressione Enter para continuar...")
             
             print('\033[1A\033[2K', end='')
             print('\033[1A\033[2K', end='')
             continue
 
-        tentativa_norm = simplifica(tentativa)
-        if tentativa_norm not in palavras:
-            print(f"{tentativa.upper()} não é aceita!")
+        tentativa_normalizada = normalizar_palavra(tentativa_usuario)
+        
+        if tentativa_normalizada not in dicionario_palavras:
+            print(f"{tentativa_usuario.upper()} não é aceita!")
             input("Pressione Enter para continuar...")
-            clear_line()
+            limpar_linha()
             print('\033[1A\033[2K', end='')
-            continue\
+            continue
 
-        tentativa = tentativa if tentativa in equivalentes[tentativa_norm] else equivalentes[tentativa_norm][0]
+        if tentativa_usuario in dicionario_equivalentes[tentativa_normalizada]:
+            tentativa_usuario = tentativa_usuario
+        else:
+            tentativa_usuario = dicionario_equivalentes[tentativa_normalizada][0]
 
-        feedback_str, feedback_detalhado, tentativa_original = dar_feedback(palavra_correta, tentativa)
+        feedback_formatado, feedback_detalhado, tentativa_processada = calcular_feedback(palavra_secreta, tentativa_usuario)
         
-        historico_tentativas.append((tentativa_original, feedback_str))
+        historico_tentativas.append((tentativa_processada, feedback_formatado))
         
-        if tentativa_norm == correta_simplificada:
-            for i, (tentativa_hist, feedback_hist) in enumerate(historico_tentativas):
-                print(f"Tentativa {i+1}: {feedback_hist}")
+        if tentativa_normalizada == palavra_secreta_normalizada:
+            for indice, (palavra_tentada, feedback_hist) in enumerate(historico_tentativas):
+                print(f"Tentativa {indice+1}: {feedback_hist}")
             print("\nParabéns, você acertou a palavra!")
             break
 
-        atualizar_estado_letras(estado_letras, feedback_detalhado, tentativa_original)
-        tentativas += 1
+        atualizar_estado_letras(estado_letras, feedback_detalhado, tentativa_processada)
+        tentativas_realizadas += 1
 
-    if tentativas >= tentativas_max and tentativa != palavra_correta:
-        for i, (tentativa_hist, feedback_hist) in enumerate(historico_tentativas):
-            print(f"Tentativa {i+1}: {feedback_hist}")
-        print(f"\nVocê perdeu! A palavra correta era: {VERDE}{palavra_correta.upper()}{RESET}")
+    if tentativas_realizadas >= max_tentativas and tentativa_usuario != palavra_secreta:
+        for indice, (palavra_tentada, feedback_hist) in enumerate(historico_tentativas):
+            print(f"Tentativa {indice+1}: {feedback_hist}")
+        print(f"\nVocê perdeu! A palavra correta era: {VERDE}{palavra_secreta.upper()}{RESET}")
+
 
 def main():
     parser = argparse.ArgumentParser(description="Jogo estilo Termo")
     parser.add_argument('tamanho', type=int, help="Número de letras da palavra")
     parser.add_argument('tentativas', type=int, help="Número de tentativas possíveis")
-    args = parser.parse_args()
+    argumentos = parser.parse_args()
     
+    dicionario_palavras, lista_pesos, dicionario_equivalentes = carregar_palavras(argumentos.tamanho)
 
-    palavras, pesos, equivalentes = ler_palavras(args.tamanho)
-
-    if len(palavras) == 0:
-        print(f"Não há palavras com {args.tamanho} letras no léxico.")
+    if len(dicionario_palavras) == 0:
+        print(f"Não há palavras com {argumentos.tamanho} letras no léxico.")
         return
 
     print(f"\nBem-vindo ao jogo Termo!")
-    print(f"Você tem {args.tentativas} tentativas para acertar a palavra de {args.tamanho} letras.")
-    jogar(palavras, pesos, args.tentativas, equivalentes)
+    print(f"Você tem {argumentos.tentativas} tentativas para acertar a palavra de {argumentos.tamanho} letras.")
+    
+    executar_jogo(dicionario_palavras, lista_pesos, argumentos.tentativas, dicionario_equivalentes)
 
 if __name__ == "__main__":
     main()
