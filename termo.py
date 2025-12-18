@@ -212,27 +212,26 @@ def selecionar_palavras_unicas(palavras_validas, probabilidades, quantidade):
     return palavras_selecionadas
 
 
-def exibir_quadro_multiplas_palavras(historico_tentativas, palavras_restantes, modo_jogo, cores_palavras):
-    print("\n" + "=" * (25 * modo_jogo + 10))
+def exibir_quadro_multiplas_palavras(historico_tentativas, palavras_restantes, modo_jogo, cores_palavras, mascara, tamanho_palavra):
+    print("\n" + "=" * (2 * (tamanho_palavra + 2) * modo_jogo + 11))
     print(f"Palavras restantes: {palavras_restantes}")
     print()
-    
+
     max_tentativas = max(len(h) for h in historico_tentativas) if historico_tentativas else 0
-    
     for tentativa_idx in range(max_tentativas):
         linha = f"Tentativa {tentativa_idx + 1}: "
         
         for palavra_idx in range(modo_jogo):
-            if tentativa_idx < len(historico_tentativas[palavra_idx]):
+            if tentativa_idx < len(historico_tentativas[palavra_idx]) and tentativa_idx < mascara[palavra_idx]:
                 feedback_str = historico_tentativas[palavra_idx][tentativa_idx][1]
                 linha += f"  {cores_palavras[palavra_idx]}█{RESET} {feedback_str}"
             else:
-                espacos = " " * (5 * 2 + 3)  
-                linha += f"  {espacos}"
+                linha += f"  {cores_palavras[palavra_idx]}█{RESET}  {'  ' * (tamanho_palavra - 1)}"
         
         print(linha)
     
-    print("=" * (25 * modo_jogo + 10))
+    print("=" * (2 * (tamanho_palavra + 2) * modo_jogo + 11))
+
 
 
 def exibir_estados_letras_multiplos(estados_letras, modo_jogo, cores_palavras):
@@ -324,7 +323,7 @@ def executar_jogo_modo_unico(dicionario_palavras, lista_pesos, max_tentativas, d
 def executar_jogo_modo_multiplo(dicionario_palavras, lista_pesos, max_tentativas, dicionario_equivalentes, modo_jogo):
     palavras_validas, probabilidades = calcular_probabilidades_exponenciais(lista_pesos)
     palavras_secretas = selecionar_palavras_unicas(palavras_validas, probabilidades, modo_jogo)
-    
+
     if len(palavras_secretas) < modo_jogo:
         print(f"Não há palavras suficientes para jogar com {modo_jogo} palavras únicas.")
         return
@@ -334,30 +333,30 @@ def executar_jogo_modo_multiplo(dicionario_palavras, lista_pesos, max_tentativas
     tentativas_realizadas = 0
     estados_letras = inicializar_estados_multiplos(modo_jogo)
     
-    # Historico por palavra: lista de listas
     historico_por_palavra = [[] for _ in range(modo_jogo)]
     
-    # Controla quais palavras já foram acertadas
     palavras_acertadas = [False] * modo_jogo
     palavras_restantes = modo_jogo
 
-    # Cores para identificar cada palavra
     cores_palavras = CORES_PALAVRAS[:modo_jogo]
 
-    print("\n" + "="*60)
+    print("\n" + "="*66)
     print(f"QUARTETO - Modo com {modo_jogo} palavras simultâneas")
-    print("="*60)
+    print("="*66)
     print("LEGENDA DE CORES:")
     print(f"{VERDE}VERDE{RESET}: Letra na posição CORRETA")
     print(f"{AMARELO}ROSA{RESET}: Letra existe na palavra mas em OUTRA posição")
     print(f"{BRANCO}BRANCO{RESET}: Letra NÃO existe na palavra")
-    print("="*60)
+    print("="*66)
     print()
+
+    tamanho_palavra = len(palavras_secretas[0])
+    mascara_acertos = [max_tentativas + 1] * 4
 
     while tentativas_realizadas < max_tentativas and palavras_restantes > 0:
         exibir_estados_letras_multiplos(estados_letras, modo_jogo, cores_palavras)
         
-        exibir_quadro_multiplas_palavras(historico_por_palavra, palavras_restantes, modo_jogo, cores_palavras)
+        exibir_quadro_multiplas_palavras(historico_por_palavra, palavras_restantes, modo_jogo, cores_palavras, mascara_acertos, tamanho_palavra)
         print()
         
         try:
@@ -406,13 +405,14 @@ def executar_jogo_modo_multiplo(dicionario_palavras, lista_pesos, max_tentativas
                 atualizar_estado_letras(estados_letras[idx], feedback_detalhado, tentativa_processada)
             
             if acertou and not palavras_acertadas[idx]:
+                mascara_acertos[idx] = tentativas_realizadas + 1
                 palavras_acertadas[idx] = True
                 palavras_restantes -= 1
 
         tentativas_realizadas += 1
 
     print()
-    exibir_quadro_multiplas_palavras(historico_por_palavra, palavras_restantes, modo_jogo, cores_palavras)
+    exibir_quadro_multiplas_palavras(historico_por_palavra, palavras_restantes, modo_jogo, cores_palavras, mascara_acertos, tamanho_palavra)
     print()
     
     if palavras_restantes == 0:
